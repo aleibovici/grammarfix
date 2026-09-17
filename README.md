@@ -23,7 +23,11 @@ Select some text, press the shortcut (⌃⌥G by default), and the selection is 
 - Xcode or the Xcode Command Line Tools (`xcode-select --install`) to build
 - An API key from [OpenRouter](https://openrouter.ai/keys), [Anthropic](https://platform.claude.com/) or [OpenAI](https://platform.openai.com/api-keys)
 
-## Build and install
+## Download
+
+Get the latest `GrammarFix-x.y.zip` from the [Releases page](https://github.com/aleibovici/grammarfix/releases/latest), unzip it and drag GrammarFix to your Applications folder. The app is signed and notarised by Apple.
+
+## Build from source
 
 ```bash
 git clone https://github.com/aleibovici/grammarfix.git
