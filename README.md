@@ -27,6 +27,12 @@ Select some text, press the shortcut (⌃⌥G by default), and the selection is 
 
 Get the latest `GrammarFix-x.y.zip` from the [Releases page](https://github.com/aleibovici/grammarfix/releases/latest), unzip it and drag GrammarFix to your Applications folder. The app is signed and notarised by Apple.
 
+Or install it with Homebrew:
+
+```bash
+brew install --cask aleibovici/tap/grammarfix
+```
+
 ## Build from source
 
 ```bash
