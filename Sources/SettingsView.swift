@@ -28,9 +28,20 @@ struct SettingsView: View {
                         models = []
                         loadModels()
                     }
-                    SecureField("API key", text: $settings.apiKey, prompt: Text(settings.provider.keyPlaceholder))
-                    TextField("Model", text: $settings.model, prompt: Text(settings.provider.defaultModel))
-                    modelSuggestions
+                    if settings.provider.isLocal {
+                        if let reason = GrammarAPI.appleLocalUnavailableReason() {
+                            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                        } else {
+                            Label("Runs on this Mac. No API key needed and text never leaves your device.",
+                                  systemImage: "lock.laptopcomputer")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        SecureField("API key", text: $settings.apiKey, prompt: Text(settings.provider.keyPlaceholder))
+                        TextField("Model", text: $settings.model, prompt: Text(settings.provider.defaultModel))
+                        modelSuggestions
+                    }
                 }
 
                 Section {

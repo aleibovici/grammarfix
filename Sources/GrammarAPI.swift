@@ -1,7 +1,10 @@
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 enum Provider: String, CaseIterable, Identifiable {
-    case openRouter, anthropic, openAI
+    case openRouter, anthropic, openAI, appleLocal
 
     var id: String { rawValue }
 
@@ -10,16 +13,27 @@ enum Provider: String, CaseIterable, Identifiable {
         case .openRouter: return "OpenRouter"
         case .anthropic: return "Claude (Anthropic)"
         case .openAI: return "OpenAI"
+        case .appleLocal: return "Apple (on-device)"
         }
     }
 
-    var shortName: String { self == .anthropic ? "Claude" : name }
+    var shortName: String {
+        switch self {
+        case .anthropic: return "Claude"
+        case .appleLocal: return "Apple"
+        default: return name
+        }
+    }
+
+    /// The on-device model runs locally, so it has no key or model choice.
+    var isLocal: Bool { self == .appleLocal }
 
     var defaultModel: String {
         switch self {
         case .openRouter: return "openai/gpt-4o-mini"
         case .anthropic: return "claude-opus-5"
         case .openAI: return "gpt-5-mini"
+        case .appleLocal: return "default"
         }
     }
 
@@ -28,6 +42,7 @@ enum Provider: String, CaseIterable, Identifiable {
         case .openRouter: return "sk-or-…"
         case .anthropic: return "sk-ant-…"
         case .openAI: return "sk-…"
+        case .appleLocal: return ""
         }
     }
 
@@ -54,9 +69,7 @@ enum GrammarAPI {
     static func fixGrammar(_ text: String) async throws -> String {
         let settings = Settings.shared
         let provider = settings.provider
-        guard !settings.apiKey.isEmpty else {
-            throw APIError(message: "No \(provider.name) API key set. Open Settings to add one.")
-        }
+        let appleAvailable = appleLocalUnavailableReason() == nil
 
         var system = systemPrompt
         let extra = settings.extraInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -64,13 +77,30 @@ enum GrammarAPI {
             system += "\n\nAdditional style instructions from the user:\n" + extra
         }
 
+        // Without a key, or when the provider fails, fall back to the on-device model.
         let content: String
-        switch provider {
-        case .anthropic:
-            content = try await anthropic(system: system, text: text, key: settings.apiKey, model: settings.model)
-        case .openRouter, .openAI:
-            content = try await chatCompletions(provider, system: system, text: text,
-                                                key: settings.apiKey, model: settings.model)
+        if provider.isLocal {
+            content = try await appleLocal(system: system, text: text)
+        } else if settings.apiKey.isEmpty {
+            guard appleAvailable else {
+                throw APIError(message: "No \(provider.name) API key set. Open Settings to add one.")
+            }
+            content = try await appleLocal(system: system, text: text)
+        } else {
+            do {
+                switch provider {
+                case .anthropic:
+                    content = try await anthropic(system: system, text: text,
+                                                  key: settings.apiKey, model: settings.model)
+                default:
+                    content = try await chatCompletions(provider, system: system, text: text,
+                                                        key: settings.apiKey, model: settings.model)
+                }
+            } catch {
+                guard appleAvailable, !(error is CancellationError) else { throw error }
+                // If the fallback fails too, the provider's error is the useful one.
+                do { content = try await appleLocal(system: system, text: text) } catch _ { throw error }
+            }
         }
 
         // Keep the selection's surrounding whitespace so pasting doesn't eat spaces/newlines.
@@ -82,6 +112,8 @@ enum GrammarAPI {
     static func fetchModels(_ provider: Provider, key: String) async throws -> [String] {
         var request: URLRequest
         switch provider {
+        case .appleLocal:
+            return []
         case .openRouter:
             request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/models")!)
         case .anthropic:
@@ -175,6 +207,48 @@ enum GrammarAPI {
             throw APIError(message: "The selection is too long to fix in one go.")
         }
         return content
+    }
+
+    /// Returns nil when the on-device model can be used, otherwise the reason it can't.
+    static func appleLocalUnavailableReason() -> String? {
+        #if canImport(FoundationModels)
+        guard #available(macOS 26.0, *) else { return "Requires macOS 26 or later." }
+        switch SystemLanguageModel.default.availability {
+        case .available:
+            return nil
+        case .unavailable(.deviceNotEligible):
+            return "This Mac doesn't support Apple Intelligence."
+        case .unavailable(.appleIntelligenceNotEnabled):
+            return "Turn on Apple Intelligence in System Settings."
+        case .unavailable(.modelNotReady):
+            return "The on-device model is still downloading. Try again later."
+        case .unavailable:
+            return "The on-device model is unavailable."
+        }
+        #else
+        return "Requires macOS 26 or later."
+        #endif
+    }
+
+    private static func appleLocal(system: String, text: String) async throws -> String {
+        if let reason = appleLocalUnavailableReason() { throw APIError(message: reason) }
+        #if canImport(FoundationModels)
+        guard #available(macOS 26.0, *) else { throw APIError(message: "Requires macOS 26 or later.") }
+        let session = LanguageModelSession(instructions: system)
+        do {
+            let response = try await session.respond(to: text, options: GenerationOptions(temperature: 0))
+            guard !response.content.isEmpty else {
+                throw APIError(message: "The on-device model returned an empty response.")
+            }
+            return response.content
+        } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
+            throw APIError(message: "The selection is too long for the on-device model.")
+        } catch LanguageModelSession.GenerationError.guardrailViolation {
+            throw APIError(message: "The on-device model declined to process this text.")
+        }
+        #else
+        throw APIError(message: "Requires macOS 26 or later.")
+        #endif
     }
 
     // MARK: - HTTP

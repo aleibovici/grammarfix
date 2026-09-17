@@ -18,7 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Settings.shared.onShortcutChange = { [weak self] in self?.registerHotKey() }
         registerHotKey()
 
-        if Settings.shared.apiKey.isEmpty { openSettings() }
+        let settings = Settings.shared
+        if !settings.provider.isLocal && settings.apiKey.isEmpty
+            && GrammarAPI.appleLocalUnavailableReason() != nil {
+            openSettings()
+        }
     }
 
     private func registerHotKey() {

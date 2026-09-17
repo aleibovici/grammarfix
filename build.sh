@@ -9,7 +9,15 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Info.plist "$APP/Contents/Info.plist"
 cp AppIcon.icns "$APP/Contents/Resources/"  # regenerate with: swift make-icon.swift
 
+# Weak-link FoundationModels (macOS 26+) so the app still launches on older systems.
+# Older SDKs don't have it; the on-device provider is compiled out there.
+LINK_FLAGS=()
+if [[ -d "$(xcrun --show-sdk-path)/System/Library/Frameworks/FoundationModels.framework" ]]; then
+    LINK_FLAGS=(-Xlinker -weak_framework -Xlinker FoundationModels)
+fi
+
 swiftc -O -swift-version 5 -target "$(uname -m)-apple-macosx13.0" \
+    ${LINK_FLAGS[@]+"${LINK_FLAGS[@]}"} \
     -o "$APP/Contents/MacOS/GrammarFix" Sources/*.swift
 
 # A stable signing identity keeps the Accessibility grant and Keychain access

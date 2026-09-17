@@ -23,6 +23,8 @@ There is no Xcode project and no package manager. The app is compiled with `swif
 
 Providers live in `Sources/GrammarAPI.swift`. Add a case to `Provider`, fill in its name, default model and key placeholder, then handle it in `fixGrammar` and `fetchModels`. Providers that speak the OpenAI chat completions format can reuse `chatCompletions`.
 
+The Apple on-device provider uses the FoundationModels framework, which needs the macOS 26 SDK. Keep that code behind `#if canImport(FoundationModels)` and `#available(macOS 26.0, *)` so the app still builds with older SDKs and runs on macOS 13. `build.sh` weak-links the framework when the SDK has it.
+
 ## Reporting bugs
 
 Please include your macOS version, the provider and model you used, the app you were typing in, and the error shown in the GrammarFix menu, if any. Don't include your API key.

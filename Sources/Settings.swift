@@ -50,8 +50,14 @@ final class Settings: ObservableObject {
 
     var onShortcutChange: (() -> Void)?
 
+    /// Apple on-device on first launch; OpenRouter if it's unavailable or a key was already saved.
+    private static var initialProvider: Provider {
+        let hasOpenRouterKey = !(Keychain.get(account: Provider.openRouter.keychainAccount) ?? "").isEmpty
+        return !hasOpenRouterKey && GrammarAPI.appleLocalUnavailableReason() == nil ? .appleLocal : .openRouter
+    }
+
     private init() {
-        let provider = Provider(rawValue: defaults.string(forKey: "provider") ?? "") ?? .openRouter
+        let provider = Provider(rawValue: defaults.string(forKey: "provider") ?? "") ?? Settings.initialProvider
         self.provider = provider
         apiKey = Keychain.get(account: provider.keychainAccount) ?? ""
         model = defaults.string(forKey: provider.modelDefaultsKey) ?? provider.defaultModel
