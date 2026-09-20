@@ -48,9 +48,6 @@ final class Settings: ObservableObject {
     @Published var extraInstructions: String {
         didSet { defaults.set(extraInstructions, forKey: "extraInstructions") }
     }
-    @Published var keepOriginalOnClipboard: Bool {
-        didSet { defaults.set(keepOriginalOnClipboard, forKey: "keepOriginalOnClipboard") }
-    }
     @Published var shortcut: Shortcut {
         didSet {
             defaults.set(Int(shortcut.keyCode), forKey: "shortcutKeyCode")
@@ -81,7 +78,6 @@ final class Settings: ObservableObject {
         self.provider = provider
         apiKey = Keychain.get(account: provider.keychainAccount) ?? ""
         model = defaults.string(forKey: provider.modelDefaultsKey) ?? provider.defaultModel
-        keepOriginalOnClipboard = defaults.object(forKey: "keepOriginalOnClipboard") as? Bool ?? true
         extraInstructions = defaults.string(forKey: "extraInstructions") ?? ""
         if let display = defaults.string(forKey: "shortcutDisplay") {
             shortcut = Shortcut(

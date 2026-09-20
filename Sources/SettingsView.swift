@@ -51,7 +51,6 @@ struct SettingsView: View {
                     LabeledContent("With instructions") {
                         ShortcutRecorder(shortcut: $settings.oneShotShortcut, slot: .oneShot)
                     }
-                    Toggle("Keep original text on clipboard", isOn: $settings.keepOriginalOnClipboard)
                     Toggle("Launch at login", isOn: $launchAtLogin)
                         .onChange(of: launchAtLogin) { enabled in
                             do {

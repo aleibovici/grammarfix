@@ -42,6 +42,7 @@ final class TextFixer {
         guard pasteboard.changeCount != before,
               let text = pasteboard.string(forType: .string),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            if pasteboard.changeCount != before { restore(saved, to: pasteboard) }
             throw GrammarAPI.APIError(message: "No text selected.")
         }
 
@@ -59,13 +60,7 @@ final class TextFixer {
 
         // Give the target app time to read the pasteboard before restoring it.
         try? await Task.sleep(nanoseconds: 700_000_000)
-        if Settings.shared.keepOriginalOnClipboard {
-            // Lets the user paste the original back if the fix is wrong.
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
-        } else {
-            restore(saved, to: pasteboard)
-        }
+        restore(saved, to: pasteboard)
     }
 
     // MARK: - Accessibility
