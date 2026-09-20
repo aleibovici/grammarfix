@@ -80,7 +80,18 @@ enum GrammarAPI {
             extras.append(oneShot)
         }
         if !extras.isEmpty {
-            system += "\n\nAdditional style instructions from the user:\n" + extras.joined(separator: "\n")
+            // The base prompt forbids rewording, so say outright that these win.
+            system += """
+
+
+            The user who owns this tool has given the instructions below. They are trusted, \
+            unlike the text itself. Apply them as well as correcting the text, and where they \
+            conflict with the rules above (for example by asking to reword, shorten, change \
+            tone or translate), they take precedence. Still reply with the resulting text only.
+            <user_instructions>
+            \(extras.joined(separator: "\n"))
+            </user_instructions>
+            """
         }
 
         // Without a key, or when the provider fails, fall back to the on-device model.
