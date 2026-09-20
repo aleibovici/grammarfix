@@ -9,14 +9,14 @@ final class TextFixer {
     var onStateChange: ((State) -> Void)?
     private var isRunning = false
 
-    func run() {
+    func run(oneShotExtra: String? = nil) {
         guard !isRunning else { return }
         guard ensureAccessibility() else { return }
         isRunning = true
         onStateChange?(.working)
         Task {
             do {
-                try await fixSelection()
+                try await fixSelection(oneShotExtra: oneShotExtra)
                 onStateChange?(.idle)
             } catch {
                 NSSound.beep()
@@ -26,7 +26,7 @@ final class TextFixer {
         }
     }
 
-    private func fixSelection() async throws {
+    private func fixSelection(oneShotExtra: String?) async throws {
         let pasteboard = NSPasteboard.general
         let saved = snapshot(pasteboard)
 
@@ -47,7 +47,7 @@ final class TextFixer {
 
         let fixed: String
         do {
-            fixed = try await GrammarAPI.fixGrammar(text)
+            fixed = try await GrammarAPI.fixGrammar(text, oneShotExtra: oneShotExtra)
         } catch {
             restore(saved, to: pasteboard)
             throw error

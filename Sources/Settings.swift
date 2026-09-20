@@ -7,11 +7,23 @@ struct Shortcut: Equatable {
     var carbonModifiers: UInt32
     var display: String
 
+    /// Same key and modifiers, ignoring the display string.
+    func matches(_ other: Shortcut) -> Bool {
+        keyCode == other.keyCode && carbonModifiers == other.carbonModifiers
+    }
+
     // ⌃⌥G
     static let `default` = Shortcut(
         keyCode: UInt32(kVK_ANSI_G),
         carbonModifiers: UInt32(controlKey | optionKey),
         display: "⌃⌥G"
+    )
+
+    // ⌃⌥H — same modifiers as the primary, adjacent key.
+    static let oneShotDefault = Shortcut(
+        keyCode: UInt32(kVK_ANSI_H),
+        carbonModifiers: UInt32(controlKey | optionKey),
+        display: "⌃⌥H"
     )
 }
 
@@ -47,6 +59,14 @@ final class Settings: ObservableObject {
             onShortcutChange?()
         }
     }
+    @Published var oneShotShortcut: Shortcut {
+        didSet {
+            defaults.set(Int(oneShotShortcut.keyCode), forKey: "oneShotShortcutKeyCode")
+            defaults.set(Int(oneShotShortcut.carbonModifiers), forKey: "oneShotShortcutModifiers")
+            defaults.set(oneShotShortcut.display, forKey: "oneShotShortcutDisplay")
+            onShortcutChange?()
+        }
+    }
 
     var onShortcutChange: (() -> Void)?
 
@@ -71,6 +91,15 @@ final class Settings: ObservableObject {
             )
         } else {
             shortcut = .default
+        }
+        if let display = defaults.string(forKey: "oneShotShortcutDisplay") {
+            oneShotShortcut = Shortcut(
+                keyCode: UInt32(defaults.integer(forKey: "oneShotShortcutKeyCode")),
+                carbonModifiers: UInt32(defaults.integer(forKey: "oneShotShortcutModifiers")),
+                display: display
+            )
+        } else {
+            oneShotShortcut = .oneShotDefault
         }
     }
 }

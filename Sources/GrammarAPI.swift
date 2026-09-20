@@ -66,15 +66,21 @@ enum GrammarAPI {
         var errorDescription: String? { message }
     }
 
-    static func fixGrammar(_ text: String) async throws -> String {
+    /// - Parameter oneShotExtra: Appended to the saved extra instructions for this run only.
+    static func fixGrammar(_ text: String, oneShotExtra: String? = nil) async throws -> String {
         let settings = Settings.shared
         let provider = settings.provider
         let appleAvailable = appleLocalUnavailableReason() == nil
 
         var system = systemPrompt
-        let extra = settings.extraInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !extra.isEmpty {
-            system += "\n\nAdditional style instructions from the user:\n" + extra
+        var extras: [String] = []
+        let saved = settings.extraInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !saved.isEmpty { extras.append(saved) }
+        if let oneShot = oneShotExtra?.trimmingCharacters(in: .whitespacesAndNewlines), !oneShot.isEmpty {
+            extras.append(oneShot)
+        }
+        if !extras.isEmpty {
+            system += "\n\nAdditional style instructions from the user:\n" + extras.joined(separator: "\n")
         }
 
         // Without a key, or when the provider fails, fall back to the on-device model.

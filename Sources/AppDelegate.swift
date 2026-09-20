@@ -6,28 +6,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
     private var fixMenuItem: NSMenuItem!
+    private var oneShotMenuItem: NSMenuItem!
     private var settingsWindow: NSWindow?
     private let fixer = TextFixer()
+    private let oneShotPrompt = OneShotPrompt()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
         buildStatusItem()
 
         fixer.onStateChange = { [weak self] state in self?.show(state) }
-        HotKey.shared.handler = { [weak self] in self?.fixer.run() }
-        Settings.shared.onShortcutChange = { [weak self] in self?.registerHotKey() }
-        registerHotKey()
-
-        let settings = Settings.shared
-        if !settings.provider.isLocal && settings.apiKey.isEmpty
-            && GrammarAPI.appleLocalUnavailableReason() != nil {
-            openSettings()
-        }
+        HotKey.shared.handlers[.primary] = { [weak self] in self?.fixer.run() }
+        HotKey.shared.handlers[.oneShot] = { [weak self] in self?.promptOneShot() }
+        Settings.shared.onShortcutChange = { [weak self] in self?.registerHotKeys() }
+        registerHotKeys()
     }
 
-    private func registerHotKey() {
-        HotKey.shared.register(Settings.shared.shortcut)
-        fixMenuItem.title = "Fix Selected Text  (\(Settings.shared.shortcut.display))"
+    private func registerHotKeys() {
+        let settings = Settings.shared
+        HotKey.shared.registerAll(primary: settings.shortcut, oneShot: settings.oneShotShortcut)
+        fixMenuItem.title = "Fix Selected Text  (\(settings.shortcut.display))"
+        oneShotMenuItem.title = "Fix with Instructions…  (\(settings.oneShotShortcut.display))"
     }
 
     // MARK: - Status item
@@ -38,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         fixMenuItem = menu.addItem(withTitle: "Fix Selected Text", action: #selector(fixNow), keyEquivalent: "")
+        oneShotMenuItem = menu.addItem(withTitle: "Fix with Instructions…",
+                                       action: #selector(fixWithInstructions), keyEquivalent: "")
         statusMenuItem = menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
         statusMenuItem.isHidden = true
         menu.addItem(.separator())
@@ -71,6 +72,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func fixNow() {
         // The menu steals focus briefly; let the previous app become active again first.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.fixer.run() }
+    }
+
+    @objc private func fixWithInstructions() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.promptOneShot() }
+    }
+
+    private func promptOneShot() {
+        oneShotPrompt.show { [weak self] instructions in
+            self?.fixer.run(oneShotExtra: instructions)
+        }
     }
 
     // MARK: - Settings window
