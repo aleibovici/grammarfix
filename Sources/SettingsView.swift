@@ -265,13 +265,13 @@ struct ShortcutRecorder: View {
             let candidate = Shortcut(keyCode: UInt32(event.keyCode),
                                      carbonModifiers: UInt32(carbon),
                                      display: display)
-            apply(candidate, flags: flags)
+            apply(candidate, menuShortcutRisk: flags.isSubset(of: [.command, .shift]))
             return nil
         }
     }
 
     /// Rejects combos macOS already uses or refuses; warns about ones apps commonly use.
-    private func apply(_ candidate: Shortcut, flags: NSEvent.modifierFlags) {
+    private func apply(_ candidate: Shortcut, menuShortcutRisk: Bool) {
         let other = slot == .primary ? Settings.shared.oneShotShortcut : Settings.shared.shortcut
         if candidate.matches(other) {
             NSSound.beep()
@@ -292,8 +292,7 @@ struct ShortcutRecorder: View {
             return
         }
         isError = false
-        // App menus use ⌘ and ⌘⇧ combos, and a global hotkey overrides them in every app.
-        message = flags.isSubset(of: [.command, .shift])
+        message = menuShortcutRisk
             ? "\(candidate.display) may clash with app menu shortcuts. Adding ⌃ or ⌥ is safer."
             : nil
         shortcut = candidate
