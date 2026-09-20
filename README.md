@@ -2,7 +2,7 @@
 
 A tiny native macOS menu bar app that fixes the grammar of whatever text you have selected, in any app, with one keyboard shortcut.
 
-Select some text, press the shortcut (⌃⌥G by default), and the selection is replaced with the corrected version.
+Select some text, press the shortcut (⌃⌥G by default), and the selection is replaced with the corrected version. Press ⌃⌥H to type one-shot instructions for a single fix.
 
 <img src="docs/settings.png" width="420" alt="GrammarFix settings window">
 
@@ -14,10 +14,11 @@ Select some text, press the shortcut (⌃⌥G by default), and the selection is 
 - Falls back to the on-device model when a provider has no key or a request fails
 - Pick any model, with a searchable model list per provider
 - Configurable global shortcut, with a check against macOS system shortcuts
+- Second shortcut opens a floating field for one-shot extra instructions on a single fix (appended to your saved instructions for that run only)
 - Optional extra instructions, e.g. "Use New Zealand English" or "Keep it friendly and polite"
 - Keeps your original text on the clipboard after a fix, so you can paste it back if you don't like the result
 - API keys are stored in the macOS Keychain
-- About 1,000 lines of Swift, no dependencies, no Xcode project
+- About 1,200 lines of Swift, no dependencies, no Xcode project
 
 ## Requirements
 
@@ -64,7 +65,7 @@ CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh --in
 
 ## How it works
 
-1. A global hotkey (Carbon `RegisterEventHotKey`) fires.
+1. A global hotkey (Carbon `RegisterEventHotKey`) fires. The secondary shortcut shows a floating field first; on submit, the typed text is appended to your saved extra instructions for that run only.
 2. GrammarFix sends ⌘C to the frontmost app and reads the selection from the clipboard.
 3. The text goes to your chosen provider with a fixed system prompt plus your extra instructions. If that provider has no key or the request fails, the Apple on-device model is used instead when it's available.
 4. The corrected text is put on the clipboard and pasted with ⌘V.
@@ -76,6 +77,7 @@ CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh --in
 | `Sources/TextFixer.swift` | Copy, fix and paste flow; clipboard handling |
 | `Sources/GrammarAPI.swift` | Providers, system prompt, HTTP requests, on-device model |
 | `Sources/HotKey.swift` | Global hotkey registration and conflict check |
+| `Sources/OneShotPrompt.swift` | Floating one-shot instructions field |
 | `Sources/Settings.swift` | Preferences and Keychain storage |
 | `Sources/SettingsView.swift` | SwiftUI settings window and shortcut recorder |
 | `make-icon.swift` | Regenerates `AppIcon.icns` (`swift make-icon.swift`) |

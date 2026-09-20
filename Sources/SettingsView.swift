@@ -46,7 +46,10 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Shortcut") {
-                        ShortcutRecorder(shortcut: $settings.shortcut)
+                        ShortcutRecorder(shortcut: $settings.shortcut, slot: .primary)
+                    }
+                    LabeledContent("With instructions") {
+                        ShortcutRecorder(shortcut: $settings.oneShotShortcut, slot: .oneShot)
                     }
                     Toggle("Keep original text on clipboard", isOn: $settings.keepOriginalOnClipboard)
                     Toggle("Launch at login", isOn: $launchAtLogin)
@@ -102,7 +105,7 @@ struct SettingsView: View {
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 1) {
                 Text("GrammarFix").font(.headline)
-                Text("Select text, then press \(settings.shortcut.display)")
+                Text("Select text, then press \(settings.shortcut.display). Add one-shot instructions with \(settings.oneShotShortcut.display).")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -215,6 +218,7 @@ private struct ModelRow: View {
 /// Click, then press a key combination to record it.
 struct ShortcutRecorder: View {
     @Binding var shortcut: Shortcut
+    let slot: HotKey.Slot
     @State private var recording = false
     @State private var monitor: Any?
     @State private var message: String?
@@ -238,7 +242,8 @@ struct ShortcutRecorder: View {
     private func start() {
         recording = true
         message = nil
-        HotKey.shared.unregister() // so the current combo can be re-recorded
+        // Free this combo so it can be pressed again while recording.
+        HotKey.shared.unregister(slot)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.keyCode == UInt16(kVK_Escape) {
                 stop()
@@ -266,14 +271,21 @@ struct ShortcutRecorder: View {
     }
 
     /// Rejects combos macOS already uses or refuses; warns about ones apps commonly use.
-    private func apply(_ candidate: Shortcut, flags: NSEvent.ModifierFlags) {
+    private func apply(_ candidate: Shortcut, flags: NSEvent.modifierFlags) {
+        let other = slot == .primary ? Settings.shared.oneShotShortcut : Settings.shared.shortcut
+        if candidate.matches(other) {
+            NSSound.beep()
+            message = "\(candidate.display) is already the other GrammarFix shortcut."
+            isError = true
+            return
+        }
         if HotKey.isSystemShortcut(candidate) {
             NSSound.beep()
             message = "\(candidate.display) is already used by macOS. Try another."
             isError = true
             return // keep recording
         }
-        guard HotKey.shared.register(candidate) else {
+        guard HotKey.shared.register(candidate, as: slot) else {
             NSSound.beep()
             message = "\(candidate.display) is already in use. Try another."
             isError = true
@@ -293,7 +305,8 @@ struct ShortcutRecorder: View {
         recording = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        HotKey.shared.register(shortcut)
+        // Re-register both slots in case recording left one unbound.
+        Settings.shared.onShortcutChange?()
     }
 
     private func keyName(for event: NSEvent) -> String {
